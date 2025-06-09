@@ -1,0 +1,147 @@
+-- 服務
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+-- UI 容器
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlyUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- 狀態變數
+local flying = false
+local speed = 100
+local verticalVelocity = 0
+local flyConnection = nil
+
+-- 通用可拖曳按鈕建立器
+local function createDraggableButton(name, text, position, color)
+	local button = Instance.new("TextButton")
+	button.Name = name
+	button.Size = UDim2.new(0, 100, 0, 50)
+	button.Position = position
+	button.Text = text
+	button.BackgroundColor3 = color
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Font = Enum.Font.SourceSansBold
+	button.TextScaled = true
+	button.Draggable = false
+	button.AutoButtonColor = true
+	button.Active = true
+	button.Parent = screenGui
+
+	local dragging = false
+	local dragStart, startPos
+
+	button.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+			dragging = true
+			dragStart = input.Position
+			startPos = button.Position
+			input.Changed:Connect(function()
+				if input.UserInputState == Enum.UserInputState.End then
+					dragging = false
+				end
+			end)
+		end
+	end)
+
+	UserInputService.InputChanged:Connect(function(input)
+		if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
+			local delta = input.Position - dragStart
+			local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+			button.Position = newPos
+		end
+	end)
+
+	return button
+end
+
+-- 飛行控制
+local function toggleFly()
+	flying = not flying
+
+	if flying then
+		humanoid.PlatformStand = true
+		if flyConnection then flyConnection:Disconnect() end
+
+		flyConnection = RunService.RenderStepped:Connect(function()
+			local moveDir = humanoid.MoveDirection
+			local camCF = workspace.CurrentCamera.CFrame
+			local camLook = Vector3.new(camCF.LookVector.X, 0, camCF.LookVector.Z).Unit
+
+			if camLook.Magnitude > 0 then
+				hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + camLook)
+			end
+
+			local direction = moveDir.Unit * speed
+			if moveDir.Magnitude == 0 then
+				direction = Vector3.zero
+			end
+
+			-- 維持飛行水平 + 垂直方向穩定移動
+			hrp.Velocity = Vector3.new(direction.X, verticalVelocity, direction.Z)
+		end)
+	else
+		humanoid.PlatformStand = false
+		verticalVelocity = 0
+		if flyConnection then flyConnection:Disconnect() end
+	end
+end
+
+-- 按鈕
+local flyButton = createDraggableButton("FlyButton", "飛行", UDim2.new(0, 100, 0, 100), Color3.fromRGB(0, 120, 255))
+local upButton = createDraggableButton("UpButton", "UP", UDim2.new(0, 100, 0, 160), Color3.fromRGB(0, 200, 0))
+local downButton = createDraggableButton("DownButton", "DOWN", UDim2.new(0, 100, 0, 220), Color3.fromRGB(200, 0, 0))
+
+-- 飛行速度輸入框
+local speedBox = Instance.new("TextBox")
+speedBox.Size = UDim2.new(0, 100, 0, 40)
+speedBox.Position = UDim2.new(0, 100, 0, 280)
+speedBox.Text = tostring(speed)
+speedBox.PlaceholderText = "速度"
+speedBox.ClearTextOnFocus = false
+speedBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+speedBox.TextColor3 = Color3.new(1,1,1)
+speedBox.Font = Enum.Font.SourceSansBold
+speedBox.TextScaled = true
+speedBox.Parent = screenGui
+
+-- 按鈕事件
+flyButton.MouseButton1Click:Connect(toggleFly)
+
+upButton.MouseButton1Down:Connect(function()
+	if flying then
+		verticalVelocity = speed
+	end
+end)
+upButton.MouseButton1Up:Connect(function()
+	if flying then
+		verticalVelocity = 0
+	end
+end)
+
+downButton.MouseButton1Down:Connect(function()
+	if flying then
+		verticalVelocity = -speed
+	end
+end)
+downButton.MouseButton1Up:Connect(function()
+	if flying then
+		verticalVelocity = 0
+	end
+end)
+
+-- 飛行速度更新
+speedBox.FocusLost:Connect(function(enterPressed)
+	local newSpeed = tonumber(speedBox.Text)
+	if newSpeed and newSpeed > 0 then
+		speed = newSpeed
+	end
+end)
