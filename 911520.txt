@@ -1,0 +1,342 @@
+-- Services & 基本設定
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+-- 狀態
+local flying = false
+local speed = 100
+local verticalVelocity = 0
+local flyConnection, trail, platform
+local platformHeight = 5
+
+-- 傳送相關
+local lastPosition = hrp.CFrame
+local followTarget, followConnection
+
+-- UI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "FlyTeleportUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local colors = {
+    Color3.fromRGB(255,85,85),
+    Color3.fromRGB(85,170,255),
+    Color3.fromRGB(85,255,127),
+    Color3.fromRGB(255,170,0),
+    Color3.fromRGB(255,255,85),
+    Color3.fromRGB(170,85,255),
+    Color3.fromRGB(0,255,255),
+}
+
+-- 拖曳 & 點擊特效函數
+local function makeDraggable(frame)
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            local dragging, dragInput = true, input
+            local startPosX, startPosY = frame.Position.X.Offset, frame.Position.Y.Offset
+            local dragStart = input.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+
+            UserInputService.InputChanged:Connect(function(move)
+                if dragging and move == dragInput then
+                    local delta = move.Position - dragStart
+                    frame.Position = UDim2.new(frame.Position.X.Scale, startPosX + delta.X,
+                                               frame.Position.Y.Scale, startPosY + delta.Y)
+                end
+            end)
+        end
+    end)
+end
+
+local function applyClickEffect(button)
+    button.MouseButton1Click:Connect(function()
+        button.BackgroundTransparency = 0.5
+        task.wait(0.1)
+        button.BackgroundTransparency = 0
+    end)
+end
+
+-- 拖尾建立
+local function createTrail()
+    if trail then trail:Destroy() end
+    trail = Instance.new("Trail")
+    trail.Lifetime = 0.5
+    trail.Transparency = NumberSequence.new(0,1)
+    local att0 = Instance.new("Attachment", hrp)
+    local att1 = Instance.new("Attachment", hrp)
+    att1.Position = Vector3.new(0,0,2)
+    trail.Attachment0 = att0
+    trail.Attachment1 = att1
+    trail.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(255,0,0)),
+        ColorSequenceKeypoint.new(0.3, Color3.fromRGB(255,255,0)),
+        ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0,255,0)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(0,255,255)),
+    }
+    trail.Parent = hrp
+end
+
+-- 防掉落平台建立及更新
+local function createPlatform()
+    if platform then platform:Destroy() end
+    platform = Instance.new("Part")
+    platform.Size = Vector3.new(1000,20,1000)
+    platform.Anchored = true
+    platform.CanCollide = true
+    platform.Transparency = 0.5
+    platform.Material = Enum.Material.SmoothPlastic
+    platform.Color = Color3.fromRGB(100,100,100)
+    platform.Name = "AntiVoidPlatform"
+    platform.Parent = workspace
+    platform.CFrame = CFrame.new(hrp.Position.X, platformHeight, hrp.Position.Z)
+end
+
+local function updatePlatformPosition()
+    if platform and hrp then
+        platform.CFrame = CFrame.new(hrp.Position.X, platformHeight, hrp.Position.Z)
+    end
+end
+
+-- UI 按鈕建立函數
+local function createButton(name, text, pos, color)
+    local btn = Instance.new("TextButton")
+    btn.Name = name
+    btn.Size = UDim2.new(0,100,0,40)
+    btn.Position = pos
+    btn.Text = text
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextScaled = true
+    btn.BorderSizePixel = 0
+    btn.Parent = screenGui
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0,8)
+    makeDraggable(btn)
+    applyClickEffect(btn)
+    return btn
+end
+
+-- 飛行切換
+local function toggleFly()
+    flying = not flying
+    humanoid.PlatformStand = flying
+    if flying then
+        verticalVelocity = 0
+        createTrail()
+        if flyConnection then flyConnection:Disconnect() end
+
+        flyConnection = RunService.RenderStepped:Connect(function()
+            updatePlatformPosition()
+
+            local moveVec = Vector3.Zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVec += Vector3.new(0,0,-1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVec += Vector3.new(0,0,1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVec += Vector3.new(-1,0,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVec += Vector3.new(1,0,0) end
+
+            if moveVec.Magnitude > 0 then
+                moveVec = moveVec.Unit
+                local cam = workspace.CurrentCamera
+                local fwd = Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z).Unit
+                local right = Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z).Unit
+                local dir = (fwd * moveVec.Z + right * moveVec.X) * speed
+                hrp.Velocity = Vector3.new(dir.X, verticalVelocity, dir.Z)
+            else
+                hrp.Velocity = Vector3.new(0, verticalVelocity, 0)
+            end
+        end)
+    else
+        if flyConnection then flyConnection:Disconnect(); flyConnection = nil end
+        hrp.Velocity = Vector3.zero
+        if trail then trail:Destroy(); trail = nil end
+    end
+end
+
+-- 建立飛行相關按鈕
+local flyBtn     = createButton("FlyBtn", "✈️ 飛行", UDim2.new(0,80,0,80), colors[1])
+local upBtn      = createButton("UpBtn", "⬆️ 上升", UDim2.new(0,80,0,130), colors[3])
+local downBtn    = createButton("DownBtn", "⬇️ 下降", UDim2.new(0,80,0,180), colors[4])
+local teleportBtn = createButton("TeleportToggle", "📡 傳送", UDim2.new(0,80,0,230), colors[5])
+
+-- 速度輸入框
+local speedBox = Instance.new("TextBox")
+speedBox.Size = UDim2.new(0,100,0,40)
+speedBox.Position = UDim2.new(0,80,0,280)
+speedBox.Text = tostring(speed)
+speedBox.PlaceholderText = "速度"
+speedBox.ClearTextOnFocus = false
+speedBox.BackgroundColor3 = Color3.fromRGB(60,60,60)
+speedBox.TextColor3 = Color3.new(1,1,1)
+speedBox.Font = Enum.Font.SourceSansBold
+speedBox.TextScaled = true
+speedBox.Parent = screenGui
+Instance.new("UICorner", speedBox).CornerRadius = UDim.new(0,6)
+makeDraggable(speedBox)
+
+speedBox.FocusLost:Connect(function()
+    local v = tonumber(speedBox.Text)
+    if v and v > 0 then speed = v else speedBox.Text = tostring(speed) end
+end)
+
+flyBtn.MouseButton1Click:Connect(toggleFly)
+upBtn.MouseButton1Down:Connect(function() if flying then verticalVelocity = speed end end)
+upBtn.MouseButton1Up:Connect(function() if flying then verticalVelocity = 0 end end)
+downBtn.MouseButton1Down:Connect(function() if flying then verticalVelocity = -speed end end)
+downBtn.MouseButton1Up:Connect(function() if flying then verticalVelocity = 0 end end)
+
+-- 啟動平台更新
+createPlatform()
+RunService.Heartbeat:Connect(updatePlatformPosition)
+
+-- 傳送功能面板
+local teleportPanel = Instance.new("Frame")
+teleportPanel.Size = UDim2.new(0,150,0,300)
+teleportPanel.Position = UDim2.new(0,190,0,230)
+teleportPanel.BackgroundColor3 = Color3.fromRGB(40,40,40)
+teleportPanel.BorderSizePixel = 0
+teleportPanel.Visible = false
+teleportPanel.Parent = screenGui
+makeDraggable(teleportPanel)
+
+local teleportScroll = Instance.new("ScrollingFrame")
+teleportScroll.Size = UDim2.new(1,-10,1,-10)
+teleportScroll.Position = UDim2.new(0,5,0,5)
+teleportScroll.CanvasSize = UDim2.new(0,0,0,0)
+teleportScroll.ScrollBarThickness = 6
+teleportScroll.BackgroundTransparency = 1
+teleportScroll.Parent = teleportPanel
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0,5)
+UIListLayout.Parent = teleportScroll
+
+local function stopFollow()
+    if followConnection then followConnection:Disconnect(); followConnection = nil end
+    followTarget = nil
+end
+
+teleportBtn.MouseButton1Click:Connect(function()
+    teleportPanel.Visible = not teleportPanel.Visible
+    if not teleportPanel.Visible then stopFollow() end
+    updatePlayerButtons()
+end)
+
+-- 更新玩家列表按鈕
+function updatePlayerButtons()
+    for _, c in pairs(teleportScroll:GetChildren()) do
+        if c:IsA("TextButton") then c:Destroy() end
+    end
+
+    local idx = 1
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1,0,0,30)
+            btn.BackgroundColor3 = colors[(idx % #colors) + 1]
+            btn.Text = plr.Name
+            btn.TextColor3 = Color3.new(1,1,1)
+            btn.Font = Enum.Font.SourceSansBold
+            btn.TextScaled = true
+            btn.LayoutOrder = idx
+            btn.Parent = teleportScroll
+
+            btn.MouseButton1Click:Connect(function()
+                if plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    lastPosition = hrp.CFrame
+                    hrp.CFrame = plr.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+                    task.delay(0.7, function() hrp.CFrame = lastPosition end)
+                end
+            end)
+
+            local holding = false
+            local startTime = 0
+            local threshold = 0.7
+
+            btn.MouseButton1Down:Connect(function()
+                holding = true
+                startTime = tick()
+                task.spawn(function()
+                    while holding do
+                        if tick() - startTime >= threshold then
+                            lastPosition = hrp.CFrame
+                            followTarget = plr
+                            if followConnection then followConnection:Disconnect(); followConnection = nil end
+                            followConnection = RunService.RenderStepped:Connect(function()
+                                if followTarget and followTarget.Character and followTarget.Character:FindFirstChild("HumanoidRootPart") then
+                                    hrp.CFrame = followTarget.Character.HumanoidRootPart.CFrame + Vector3.new(0,3,0)
+                                else
+                                    stopFollow()
+                                end
+                            end)
+                            break
+                        end
+                        task.wait(0.1)
+                    end
+                end)
+            end)
+
+            btn.MouseButton1Up:Connect(function()
+                if holding and followConnection then
+                    hrp.CFrame = lastPosition
+                end
+                holding = false
+                stopFollow()
+            end)
+
+            idx += 1
+        end
+    end
+    teleportScroll.CanvasSize = UDim2.new(0,0,0, UIListLayout.AbsoluteContentSize.Y)
+end
+
+Players.PlayerAdded:Connect(updatePlayerButtons)
+Players.PlayerRemoving:Connect(function()
+    updatePlayerButtons()
+    stopFollow()
+end)
+updatePlayerButtons()
+
+-- 角色重生後恢復狀態
+player.CharacterAdded:Connect(function(char)
+    character = char
+    hrp = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+    createPlatform()
+    updatePlatformPosition()
+    if flying then
+        humanoid.PlatformStand = true
+        createTrail()
+        if flyConnection then flyConnection:Disconnect() end
+        flyConnection = RunService.RenderStepped:Connect(function()
+            updatePlatformPosition()
+
+            local moveVec = Vector3.Zero
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveVec += Vector3.new(0,0,-1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveVec += Vector3.new(0,0,1) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveVec += Vector3.new(-1,0,0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveVec += Vector3.new(1,0,0) end
+
+            if moveVec.Magnitude > 0 then
+                moveVec = moveVec.Unit
+                local cam = workspace.CurrentCamera
+                local fwd = Vector3.new(cam.CFrame.LookVector.X,0,cam.CFrame.LookVector.Z).Unit
+                local right = Vector3.new(cam.CFrame.RightVector.X,0,cam.CFrame.RightVector.Z).Unit
+                local dir = (fwd * moveVec.Z + right * moveVec.X) * speed
+                hrp.Velocity = Vector3.new(dir.X, verticalVelocity, dir.Z)
+            else
+                hrp.Velocity = Vector3.new(0, verticalVelocity, 0)
+            end
+        end)
+    end
+end)
