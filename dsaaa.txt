@@ -45,7 +45,7 @@ end
 
 -- 🟢 開始按鈕
 local button = Instance.new("TextButton", gui)
-button.Size = UDim2.new(0, 80, 0, 80)
+button.Size = UDim2.new(0, 40, 0, 40)
 button.Position = UDim2.new(0.5, -40, 0.5, 10)
 button.BackgroundColor3 = Color3.fromRGB(0, 200, 255)
 button.Text = "開始"
@@ -73,7 +73,7 @@ end)
 
 -- 🎯 點擊圖標
 local icon = Instance.new("Frame", gui)
-icon.Size = UDim2.new(0, 50, 0, 50)
+icon.Size = UDim2.new(0, 25, 0, 25)
 icon.Position = UDim2.new(0.5, -25, 0.5, -100)
 icon.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 icon.BackgroundTransparency = 0.5
