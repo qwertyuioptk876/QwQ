@@ -12,5 +12,11 @@ if currentplace ~= battle_ID then
 end
 
 local StatsList = game.Players.LocalPlayer.playerGui.Frames.PauseFrame.LeftFrame.StatList
+local Mystats = {}
+
 for _, item in ipairs(StatsList:GetDescendants()) do
-  
+  if item.Name == "StatAmount" then
+    local StatName = item.Parent.Name 
+    Mystats[StatName] = item
+  end
+end
