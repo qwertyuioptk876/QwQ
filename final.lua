@@ -13,6 +13,11 @@ end
 
 local StatsList = game.Players.LocalPlayer.playerGui.Frames.PauseFrame.LeftFrame.StatList
 local Mystats = {}
+local Wish = {
+  "Luck",
+  "Damage",
+  "Attack Speed"
+}
 
 for _, item in ipairs(StatsList:GetDescendants()) do
   if item.Name == "StatAmount" then
@@ -20,3 +25,4 @@ for _, item in ipairs(StatsList:GetDescendants()) do
     Mystats[StatName] = item
   end
 end
+
