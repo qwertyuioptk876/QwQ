@@ -12,7 +12,16 @@ if currentplace ~= battle_ID then
 end
 
 local StatsList = game.Players.LocalPlayer.playerGui.Frames.PauseFrame.LeftFrame.StatList
+local Holder = game.Players.LocalPlayer.PlayerGui.Frames.Upgrades.Holder
+
+
 local Mystats = {}
+local Myselections = { 
+  [1] = {botton = Holder.Selection1, name =  Holder.Selection1.ItemTitle},
+  [2] = {botton = Holder.Selection2, name =  Holder.Selection2.ItemTitle},
+  [3] = {botton = Holder.Selection3, name =  Holder.Selection3.ItemTitle}
+}
+
 local Wish = {
   "Luck",
   "Damage",
@@ -25,4 +34,21 @@ for _, item in ipairs(StatsList:GetDescendants()) do
     Mystats[StatName] = item
   end
 end
+
+for i = 1, 3, 1 do
+    
+    local currentSlot = MyChoices[i] 
+    
+    local currentText = currentSlot.name.Text
+    
+    if currentText == "luck" then
+        
+        currentSlot.Button:Activate()
+     
+        break 
+    end
+    
+end
+
+
 
