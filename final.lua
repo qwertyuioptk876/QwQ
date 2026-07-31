@@ -1,17 +1,17 @@
-local player = game:GetService("Player")
+local player = game:GetService("Players")
 local LocalPlayer = player.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local lobby_ID = 99521272836282
 local battle_ID = 79787558257549
 
-local currentplace = game.PlaceID
+local currentplace = game.PlaceId
 if currentplace ~= battle_ID then
   print("位置錯誤")
   return
 end
 
-local StatsList = game.Players.LocalPlayer.playerGui.Frames.PauseFrame.LeftFrame.StatList
+local StatsList = game.Players.LocalPlayer.PlayerGui.Frames.PauseFrame.LeftFrame.StatList
 local Holder = game.Players.LocalPlayer.PlayerGui.Frames.Upgrades.Holder
 
 
@@ -38,11 +38,11 @@ end
 while true do
   task.wait(2)
   for i = 1, 3, 1 do
-    if Myselections[i].name.Text == luck and Mystats.luck.StatAmount.Text < 600  then
-      myselections[i].botton.Activate()
+    if Myselections[i].name.Text == "luck" and Mystats.luck.Text < 600  then
+      Myselections[i].botton.Activate()
     end
     if i == 3 then
-      myselections[i].botton.Activate()
+      Myselections[i].botton.Activate()
     end
   end
 end
