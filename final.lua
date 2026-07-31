@@ -12,7 +12,9 @@ if currentplace ~= battle_ID then
 end
 
 local StatsList = game.Players.LocalPlayer.PlayerGui.Frames.PauseFrame.LeftFrame.StatList
-local Holder = game.Players.LocalPlayer.PlayerGui.Frames.Upgrades.Holder
+local Frames = PlayerGui:WaitForChild("Frames")
+local PauseFrame = Frames:WaitForChild("PauseFrame")
+local Holder = Frames:WaitForChild("Upgrades"):WaitForChild("Holder")
 
 
 local Mystats = {}
