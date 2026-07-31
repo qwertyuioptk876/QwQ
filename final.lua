@@ -35,20 +35,16 @@ for _, item in ipairs(StatsList:GetDescendants()) do
   end
 end
 
-for i = 1, 3, 1 do
-    
-    local currentSlot = MyChoices[i] 
-    
-    local currentText = currentSlot.name.Text
-    
-    if currentText == "luck" then
-        
-        currentSlot.Button:Activate()
-     
-        break 
+while true do
+  task.wait(2)
+  for i = 1, 3, 1 do
+    if Myselections[i].name.Text == luck and Mystats.luck.StatAmount.Text < 600  then
+      myselections[i].botton.Activate()
     end
-    
+    if i == 3 then
+      myselections[i].botton.Activate()
+    end
+  end
 end
-
 
 
